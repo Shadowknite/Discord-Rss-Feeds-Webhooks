@@ -1,18 +1,25 @@
 const Discord = require('discord.js');
-const forumsDatabase = require(`${process.cwd()}/forumDatabase`);
+const rssFeedDatabase = require(`${process.cwd()}/rssFeedDatabase`);
 const Parser = require('rss-parser');
 const parser = new Parser();
+let feedMessages = [];
 
-function start(){
-	const date = new Date()
+async function start(){
+	const date = new Date();
     console.log('Ready!');
-    console.log(date.toLocaleString('en-US'))
+    console.log(date.toLocaleString('en-US'));
+    feedMessages = await rssFeedDatabase.getRssFeedMessagesLoop();
 }
 
 setInterval(async ()=>{
 	const now = new Date();
+    if(now.getMinutes()%2===1&&now.getSeconds()===0){
+        feedMessages.forEach(async messagePost=>{
+            await rssFeedDatabase.addRssFeedMessages(messagePost)
+        })
+    }
 	if(now.getMinutes()%2===0&&now.getSeconds()===0){
-        const ytfeeds = await forumsDatabase.getForumsWebhookLoop()
+        const ytfeeds = await rssFeedDatabase.getRssFeedWebhookLoop()
         if(!ytfeeds.length){return}
         const youtubeChannels = new Discord.Collection();
         ytfeeds.forEach(yt=>{
@@ -32,16 +39,12 @@ setInterval(async ()=>{
                     if(postedYTStreams[0]===''){
                         postedYTStreams.shift()
                     }
-                    const webhookLink = ytchannel.webhook.split('/')
-                    const webhookToken = webhookLink.pop()
-                    const webhookID = webhookLink.pop()
-                    const webhook = new Discord.WebhookClient({id:webhookID, token:webhookToken});
+                    const webhook = new Discord.WebhookClient({url:ytchannel.webhook});
                     let latestTime = ytchannel.latestTime
                     feed.items.forEach(async item => {
                         if(!item)return
                         if(postedYTStreams.includes(item.link.trim())) return
                         const urlCheck = item.link.trim().split('/').pop()
-                        if(postedYTStreams.find(url=>url.includes(urlCheck))) return
                         const date = new Date(item.isoDate)
                         if(date.getTime()<ytchannel.latestTime){
                             return
@@ -79,24 +82,28 @@ setInterval(async ()=>{
                         }else if(item.author){
                             embed.setFooter(`${item.author.trim()} | ${date.toLocaleDateString('en-us',{year:'numeric',month:'long',day:'numeric',timeZone:'America/Los_Angeles'})} at ${date.toLocaleTimeString('en-US',{hour:'numeric',minute:'numeric',timeZone:'America/Los_Angeles'})} | ${feed.title.split('topics')[0].trim()}`)
                         }
-                        if(item.link.trim().includes('community.stadia.com')){
-                            embed.setColor(0xFC4A1F)
-                        }
                         if(embed.description){
-                            postedYTStreams.push(item.link.trim())
-                            if(!ytchannel.firstRun){
-                                await webhook.send({embeds:[embed]})
+                            const feedMessagePosted = feedMessages.find(posted=>posted.webhook===webhook.url&&posted.postUrl.includes(urlCheck))
+                            if(!ytchannel.firstRun&&!feedMessagePosted&&!postedYTStreams.find(url=>url.includes(urlCheck))){
+                                const message = await webhook.send({embeds:[embed]})
+                                feedMessages.push({"webhook":webhook.url,"postUrl":item.link.trim(),"messageId":message.id})
+                            }// else if(!ytchannel.firstRun&&feedMessagePosted&&postedYTStreams.find(url=>url.includes(urlCheck))){
+                                // await webhook.editMessage(feedMessagePosted.messageId,{embeds:[embed]})
+                            // }
+                            if(postedYTStreams.find(url=>url.includes(urlCheck))){
+                                postedYTStreams.splice(postedYTStreams.indexOf(postedYTStreams.find(url=>url.includes(urlCheck))), 1,item.link.trim())
+                            }else{
+                                postedYTStreams.push(item.link.trim())
                             }
                         }
                     })
-                    while(postedYTStreams.length>300){
+                    while(postedYTStreams.length>150){
                         postedYTStreams.shift()
                     }
-                    forumsDatabase.addForums({"guild_id":ytchannel.guild_id,"forum":ytchannel.forum,"webhook":ytchannel.webhook,"postedUrls":postedYTStreams.join(','),"firstRun":false,"latestTime":latestTime})
+                    rssFeedDatabase.addRssFeed({"guild_id":ytchannel.guild_id,"forum":ytchannel.forum,"webhook":ytchannel.webhook,"postedUrls":postedYTStreams.join(','),"firstRun":false,"latestTime":latestTime})
                 })
             }catch(e){
                 console.log(ytChannel)
-                console.log(e)
                 console.log(now.toLocaleString('en-US'))
             }
         })
