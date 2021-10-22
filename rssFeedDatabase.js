@@ -68,7 +68,7 @@ module.exports = {
 			await rssFeed.destroy({
 				where: {
 					guild_id: requested.guild_id,
-                    channel: requested.channel,
+                    forum: requested.forum,
 				},
 				force: true
 			});
@@ -78,9 +78,18 @@ module.exports = {
     addRssFeed: function(requested){
 		return new Promise(async resolve =>{
 			try{
-                await rssFeed.upsert(requested)
-            }catch {
-                console.log("unable to write to rss feeds database: "+JSON.stringify(requested));
+				await rssFeed.create(requested);
+			}catch{
+				try{
+					await rssFeed.update(requested, {
+						where: {
+							guild_id: requested.guild_id,
+							forum: requested.forum,
+						}
+					});
+				}catch {
+                    console.log("unable to write to rss feeds database: "+JSON.stringify(requested));
+                }
             }
 			resolve(requested);
 		});
@@ -111,10 +120,19 @@ module.exports = {
 	},
     addRssFeedMessages: function(requested){
 		return new Promise(async resolve =>{
-			try{
-                await messages.upsert(requested)
-            }catch {
-                console.log("unable to write to rss feed messages database: "+JSON.stringify(requested));
+            try{
+				await messages.create(requested);
+			}catch{
+				try{
+					await messages.update(requested, {
+						where: {
+							webhook: requested.webhook,
+							postUrl: requested.postUrl,
+						}
+					});
+				}catch {
+                    console.log("unable to write to rss feed messages database: "+JSON.stringify(requested));
+                }
             }
 			resolve(requested);
 		});
