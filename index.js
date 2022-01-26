@@ -21,45 +21,45 @@ setInterval(async ()=>{
 	if(now.getMinutes()%2===0&&now.getSeconds()===0){
         const ytfeeds = await rssFeedDatabase.getRssFeedWebhookLoop()
         if(!ytfeeds.length){return}
-        const youtubeChannels = new Discord.Collection();
-        ytfeeds.forEach(yt=>{
-            if(youtubeChannels.has(yt.forum)){
-                youtubeChannels.get(yt.forum).push(yt)
+        const forumFeeds = new Discord.Collection();
+        feeds.forEach(forumFeed=>{
+            if(forumFeeds.has(forumFeed.forum)){
+                forumFeeds.get(forumFeed.forum).push(forumFeed)
             }else{
-                youtubeChannels.set(yt.forum,[yt])
+                forumFeeds.set(forumFeed.forum,[forumFeed])
             }
         })
-        const youtubeChannelsList = [...youtubeChannels.keys()]
-        youtubeChannelsList.forEach(async ytChannel=>{
+        const forumFeedsList = [...forumFeeds.keys()]
+        forumFeedsList.forEach(async forumFeed=>{
             try{
-                const feed = await parser.parseURL(ytChannel)
+                const feed = await parser.parseURL(forumFeed)
                 feed.items.reverse()
-                youtubeChannels.get(ytChannel).forEach(ytchannel=>{
-                    const postedYTStreams = ytchannel.postedUrls.split(',')
-                    if(postedYTStreams[0]===''){
-                        postedYTStreams.shift()
+                youtubeChannels.get(forumFeed).forEach(forumfeed=>{
+                    const postedFeedStreams = forumfeed.postedUrls.split(',')
+                    if(postedFeedStreams[0]===''){
+                        postedFeedStreams.shift()
                     }
-                    const webhook = new Discord.WebhookClient({url:ytchannel.webhook});
-                    let latestTime = ytchannel.latestTime
+                    const webhook = new Discord.WebhookClient({url:forumfeed.webhook});
+                    let latestTime = forumfeed.latestTime
                     feed.items.forEach(async item => {
                         if(!item)return
-                        if(postedYTStreams.includes(item.link.trim())) return
+                        if(postedFeedStreams.includes(item.link.trim())) return
                         const urlCheck = item.link.trim().split('/').pop()
                         const date = new Date(item.isoDate)
-                        if(date.getTime()<ytchannel.latestTime){
+                        if(date.getTime()<forumfeed.latestTime){
                             return
                         }else{
                             latestTime = date.getTime()
                         }
                         const embed = new Discord.MessageEmbed()
                         if(item.title.trim().length>256){
-                            embed.setTitle(`${item.title.trim().slice(0,253)}...`)
+                            embed.setTitle(`${item.title.trim().replace('http','ht​tp').slice(0,253)}...`)
                         }else{
-                            embed.setTitle(`${item.title.trim()}`)
+                            embed.setTitle(`${item.title.trim().replace('http','ht​tp')}`)
                         }
                         if(item.contentSnippet){
                             if(item.contentSnippet.split('submitted by')[0].trim().length>1024){
-                                embed.setDescription(item.contentSnippet.split('submitted by')[0].trim().slice(0,1024-item.link.trim().length)+'...')
+                                embed.setDescription(item.contentSnippet.split('submitted by')[0].trim().slice(0,1024)+'...')
                             }else{
                                 embed.setDescription(item.contentSnippet.split('submitted by')[0].trim())
                             }
@@ -78,32 +78,30 @@ setInterval(async ()=>{
                             }
                         }
                         if(item.creator){
-                            embed.setFooter(`${item.creator.trim()} | ${date.toLocaleDateString('en-us',{year:'numeric',month:'long',day:'numeric',timeZone:'America/Los_Angeles'})} at ${date.toLocaleTimeString('en-US',{hour:'numeric',minute:'numeric',timeZone:'America/Los_Angeles'})} | ${feed.title.split('topics')[0].trim()}`)
+                            embed.setFooter({text:`${item.creator.trim()} | ${feed.title.split('topics')[0].trim()} | ${date.toLocaleDateString('en-us',{year:'numeric',month:'long',day:'numeric',timeZone:'America/Los_Angeles'})} at ${date.toLocaleTimeString('en-US',{hour:'numeric',minute:'numeric',timeZone:'America/Los_Angeles'})}`})
                         }else if(item.author){
-                            embed.setFooter(`${item.author.trim()} | ${date.toLocaleDateString('en-us',{year:'numeric',month:'long',day:'numeric',timeZone:'America/Los_Angeles'})} at ${date.toLocaleTimeString('en-US',{hour:'numeric',minute:'numeric',timeZone:'America/Los_Angeles'})} | ${feed.title.split('topics')[0].trim()}`)
+                            embed.setFooter({text:`${item.author.trim()} | ${feed.title.split('topics')[0].trim()} | ${date.toLocaleDateString('en-us',{year:'numeric',month:'long',day:'numeric',timeZone:'America/Los_Angeles'})} at ${date.toLocaleTimeString('en-US',{hour:'numeric',minute:'numeric',timeZone:'America/Los_Angeles'})}`})
                         }
                         if(embed.description){
                             const feedMessagePosted = feedMessages.find(posted=>posted.webhook===webhook.url&&posted.postUrl.includes(urlCheck))
-                            if(!ytchannel.firstRun&&!feedMessagePosted&&!postedYTStreams.find(url=>url.includes(urlCheck))){
+                            if(!forumfeed.firstRun&&!feedMessagePosted&&!postedFeedStreams.find(url=>url.includes(urlCheck))){
                                 const message = await webhook.send({embeds:[embed]})
                                 feedMessages.push({"webhook":webhook.url,"postUrl":item.link.trim(),"messageId":message.id})
-                            }// else if(!ytchannel.firstRun&&feedMessagePosted&&postedYTStreams.find(url=>url.includes(urlCheck))){
-                                // await webhook.editMessage(feedMessagePosted.messageId,{embeds:[embed]})
-                            // }
-                            if(postedYTStreams.find(url=>url.includes(urlCheck))){
-                                postedYTStreams.splice(postedYTStreams.indexOf(postedYTStreams.find(url=>url.includes(urlCheck))), 1,item.link.trim())
+                            }
+                            if(postedFeedStreams.find(url=>url.includes(urlCheck))){
+                                postedFeedStreams.splice(postedFeedStreams.indexOf(postedFeedStreams.find(url=>url.includes(urlCheck))), 1,item.link.trim())
                             }else{
-                                postedYTStreams.push(item.link.trim())
+                                postedFeedStreams.push(item.link.trim())
                             }
                         }
                     })
-                    while(postedYTStreams.length>150){
-                        postedYTStreams.shift()
+                    while(postedFeedStreams.length>150){
+                        postedFeedStreams.shift()
                     }
-                    rssFeedDatabase.addRssFeed({"guild_id":ytchannel.guild_id,"forum":ytchannel.forum,"webhook":ytchannel.webhook,"postedUrls":postedYTStreams.join(','),"firstRun":false,"latestTime":latestTime})
+                    rssFeedDatabase.addRssFeed({"guild_id":forumfeed.guild_id,"forum":forumfeed.forum,"webhook":forumfeed.webhook,"postedUrls":postedFeedStreams.join(','),"firstRun":false,"latestTime":latestTime})
                 })
             }catch(e){
-                console.log(ytChannel)
+                console.log(forumFeed)
                 console.log(now.toLocaleString('en-US'))
             }
         })
