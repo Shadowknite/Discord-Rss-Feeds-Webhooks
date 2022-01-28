@@ -52,7 +52,7 @@ setInterval(async ()=>{
                             latestTime = date.getTime()
                         }
                         const embed = new Discord.MessageEmbed()
-                        if(item.title.trim().length>256){
+                        if(item.title.trim().replace('http','ht​tp').length>256){
                             embed.setTitle(`${item.title.trim().replace('http','ht​tp').slice(0,253)}...`)
                         }else{
                             embed.setTitle(`${item.title.trim().replace('http','ht​tp')}`)
@@ -87,9 +87,16 @@ setInterval(async ()=>{
                             if(!forumfeed.firstRun&&!feedMessagePosted&&!postedFeedStreams.find(url=>url.includes(urlCheck))){
                                 const message = await webhook.send({embeds:[embed]})
                                 feedMessages.push({"webhook":webhook.url,"postUrl":item.link.trim(),"messageId":message.id})
+                            }else if(!forumfeed.firstRun&&feedMessagePosted&&!postedFeedStreams.find(url=>url===item.link.trim())){
+                                const messageEdit = await webhook.editMessage(feedMessagePosted.messageId,{embeds:[embed]})
+                                feedMessages.splice(feedMessages.indexOf(feedMessages.find(url=>url.postUrl.includes(urlCheck))), 1,{"webhook":webhook.url,"postUrl":item.link.trim(),"messageId":messageEdit.id})
                             }
                             if(postedFeedStreams.find(url=>url.includes(urlCheck))){
                                 postedFeedStreams.splice(postedFeedStreams.indexOf(postedFeedStreams.find(url=>url.includes(urlCheck))), 1,item.link.trim())
+                                if(feedMessages.find(url=>url.postUrl.includes(urlCheck))){
+                                    const feedMessage = feedMessages.find(url=>url.postUrl.includes(urlCheck))
+                                    feedMessages.splice(feedMessages.indexOf(feedMessages.find(url=>url.postUrl.includes(urlCheck))), 1,{"webhook":webhook.url,"postUrl":item.link.trim(),"messageId":feedMessage.messageId})
+                                }
                             }else{
                                 postedFeedStreams.push(item.link.trim())
                             }
