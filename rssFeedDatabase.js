@@ -28,11 +28,6 @@ const rssFeed = sqlite.define('rssFeeds', {
         type: sql.DataTypes.TEXT,
         allowNull: false,
     },
-    postedUrls:{
-        type: sql.DataTypes.TEXT,
-        allowNull: false,
-        defaultValue: '',
-    },
     firstRun:{
         type: sql.DataTypes.BOOLEAN,
         allowNull: false,
@@ -139,7 +134,7 @@ module.exports = {
 	},
     getRssFeedMessagesLoop: function(){
 		return new Promise(async resolve =>{
-			const list = await messages.findAll();
+			const list = await messages.findAll({ limit: 10000,order: [['messageId','DESC']]});
 			resolve(list);
 		});
 	}

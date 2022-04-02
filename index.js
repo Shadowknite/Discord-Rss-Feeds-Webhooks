@@ -13,12 +13,12 @@ async function start(){
 
 setInterval(async ()=>{
 	const now = new Date();
-    if(now.getMinutes()%2===1&&now.getSeconds()===0){
+    if(now.getMinutes()%2===0&&now.getSeconds()===0){
         feedMessages.forEach(async messagePost=>{
             await rssFeedDatabase.addRssFeedMessages(messagePost)
         })
     }
-	if(now.getMinutes()%2===0&&now.getSeconds()===0){
+	if(now.getSeconds()===0){
         const ytfeeds = await rssFeedDatabase.getRssFeedWebhookLoop()
         if(!ytfeeds.length){return}
         const forumFeeds = new Discord.Collection();
@@ -35,16 +35,12 @@ setInterval(async ()=>{
                 const feed = await parser.parseURL(forumFeed)
                 feed.items.reverse()
                 youtubeChannels.get(forumFeed).forEach(forumfeed=>{
-                    const postedFeedStreams = forumfeed.postedUrls.split(',')
-                    if(postedFeedStreams[0]===''){
-                        postedFeedStreams.shift()
-                    }
                     const webhook = new Discord.WebhookClient({url:forumfeed.webhook});
                     let latestTime = forumfeed.latestTime
                     feed.items.forEach(async item => {
                         if(!item)return
-                        if(postedFeedStreams.includes(item.link.trim())) return
                         const urlCheck = item.link.trim().split('/').pop()
+                        if(feedMessages.find(posted=>posted.webhook===webhook.url&&posted.postUrl===item.link.trim())) return
                         const date = new Date(item.isoDate)
                         if(date.getTime()<forumfeed.latestTime){
                             return
@@ -84,27 +80,15 @@ setInterval(async ()=>{
                         }
                         if(embed.description){
                             const feedMessagePosted = feedMessages.find(posted=>posted.webhook===webhook.url&&posted.postUrl.includes(urlCheck))
-                            if(!forumfeed.firstRun&&!feedMessagePosted&&!postedFeedStreams.find(url=>url.includes(urlCheck))){
+                            if(!forumfeed.firstRun&&!feedMessagePosted){
                                 const message = await webhook.send({embeds:[embed]})
                                 feedMessages.push({"webhook":webhook.url,"postUrl":item.link.trim(),"messageId":message.id})
-                            }else if(!forumfeed.firstRun&&feedMessagePosted&&!postedFeedStreams.find(url=>url===item.link.trim())){
+                            }else if(!forumfeed.firstRun&&feedMessagePosted&&!feedMessages.find(posted=>posted.webhook===webhook.url&&posted.postUrl===item.link.trim())){
                                 const messageEdit = await webhook.editMessage(feedMessagePosted.messageId,{embeds:[embed]})
                                 feedMessages.splice(feedMessages.indexOf(feedMessages.find(url=>url.postUrl.includes(urlCheck))), 1,{"webhook":webhook.url,"postUrl":item.link.trim(),"messageId":messageEdit.id})
                             }
-                            if(postedFeedStreams.find(url=>url.includes(urlCheck))){
-                                postedFeedStreams.splice(postedFeedStreams.indexOf(postedFeedStreams.find(url=>url.includes(urlCheck))), 1,item.link.trim())
-                                if(feedMessages.find(url=>url.postUrl.includes(urlCheck))){
-                                    const feedMessage = feedMessages.find(url=>url.postUrl.includes(urlCheck))
-                                    feedMessages.splice(feedMessages.indexOf(feedMessages.find(url=>url.postUrl.includes(urlCheck))), 1,{"webhook":webhook.url,"postUrl":item.link.trim(),"messageId":feedMessage.messageId})
-                                }
-                            }else{
-                                postedFeedStreams.push(item.link.trim())
-                            }
                         }
                     })
-                    while(postedFeedStreams.length>150){
-                        postedFeedStreams.shift()
-                    }
                     rssFeedDatabase.addRssFeed({"guild_id":forumfeed.guild_id,"forum":forumfeed.forum,"webhook":forumfeed.webhook,"postedUrls":postedFeedStreams.join(','),"firstRun":false,"latestTime":latestTime})
                 })
             }catch(e){
