@@ -74,10 +74,13 @@ setInterval(async ()=>{
                             }
                         }
                         if(item.creator){
-                            embed.setFooter({text:`${item.creator.trim()} | ${feed.title.split('topics')[0].trim()} | ${date.toLocaleDateString('en-us',{year:'numeric',month:'long',day:'numeric',timeZone:'America/Los_Angeles'})} at ${date.toLocaleTimeString('en-US',{hour:'numeric',minute:'numeric',timeZone:'America/Los_Angeles'})}`})
+                            embed.setAuthor({name:item.creator.trim()})
+                            embed.setFooter({text:feed.title.split('topics')[0].trim()})
                         }else if(item.author){
-                            embed.setFooter({text:`${item.author.trim()} | ${feed.title.split('topics')[0].trim()} | ${date.toLocaleDateString('en-us',{year:'numeric',month:'long',day:'numeric',timeZone:'America/Los_Angeles'})} at ${date.toLocaleTimeString('en-US',{hour:'numeric',minute:'numeric',timeZone:'America/Los_Angeles'})}`})
+                            embed.setAuthor({name:item.author.trim()})
+                            embed.setFooter({text:feed.title.split('topics')[0].trim()})
                         }
+                        embed.setTimestamp(date)
                         if(embed.description){
                             const feedMessagePosted = feedMessages.find(posted=>posted.webhook===webhook.url&&posted.postUrl.includes(urlCheck))
                             if(!forumfeed.firstRun&&!feedMessagePosted){
@@ -93,6 +96,7 @@ setInterval(async ()=>{
                 })
             }catch(e){
                 console.log(forumFeed)
+                console.log(e.toString())
                 console.log(now.toLocaleString('en-US'))
             }
         })
